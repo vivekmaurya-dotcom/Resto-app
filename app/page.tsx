@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import './home.css';
+import { useCart } from './context/CartContext';
+import { CartDrawer } from './_components/CartDrawer';
 
 // Sample Featured Menu Data
 const MENU_ITEMS = [
@@ -84,6 +86,15 @@ export default function Home() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [newsletterEmail, setNewsletterEmail] = useState('');
+  const { cartTotal, addToCart, setIsCartOpen } = useCart();
+  const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
+
+  const triggerToast = (message: string) => {
+    setToast({ show: true, message });
+    setTimeout(() => {
+      setToast((prev) => (prev.message === message ? { ...prev, show: false } : prev));
+    }, 3000);
+  };
 
   const filteredMenu = MENU_ITEMS.filter((item) => {
     const matchesCategory = activeCategory === 'All' || item.category === activeCategory;
@@ -120,9 +131,20 @@ export default function Home() {
           </ul>
         </nav>
 
-        <Link href="/restaurant" className="btn-partner">
-          Partner Login
-        </Link>
+        <div className="header-actions">
+          <button className="cart-icon-btn" onClick={() => setIsCartOpen(true)} title="View Cart">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <path d="M16 10a4 4 0 0 1-8 0"></path>
+            </svg>
+            {cartTotal > 0 && <span className="cart-badge">{cartTotal}</span>}
+          </button>
+
+          <Link href="/restaurant" className="btn-partner">
+            Partner Login
+          </Link>
+        </div>
       </header>
 
       {/* Hero Section */}
@@ -258,7 +280,21 @@ export default function Home() {
                 <p className="menu-desc">{item.desc}</p>
                 <div className="menu-footer">
                   <span className="menu-price">{item.price}</span>
-                  <button className="order-btn" title="Add to Order">
+                  <button
+                    className="order-btn"
+                    title="Add to Order"
+                    onClick={() => {
+                      addToCart({
+                        id: item.id,
+                        name: item.name,
+                        price: item.price,
+                        image: item.image,
+                        desc: item.desc,
+                        category: item.category,
+                      });
+                      triggerToast(`${item.name} added to your cart!`);
+                    }}
+                  >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="12" y1="5" x2="12" y2="19"></line>
                       <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -333,6 +369,15 @@ export default function Home() {
           <div>Made with Passion for Good Food.</div>
         </div>
       </footer>
+
+      {/* Toast Notification */}
+      <div className={`cart-toast ${toast.show ? 'show' : ''}`}>
+        <div className="toast-icon">✨</div>
+        <div className="toast-message">{toast.message}</div>
+      </div>
+
+      {/* Cart Drawer Panel */}
+      <CartDrawer />
     </div>
   );
 }
