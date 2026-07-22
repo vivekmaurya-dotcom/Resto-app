@@ -56,6 +56,53 @@ export default function OrdersPage() {
     };
   }, []);
 
+  // Simulate active order progression in the background on the Orders page
+  useEffect(() => {
+    const advanceOrders = () => {
+      try {
+        const stored = localStorage.getItem('resto_orders');
+        if (!stored) return;
+        const parsedOrders: Order[] = JSON.parse(stored);
+        let updated = false;
+
+        const now = Date.now();
+        const nextOrders = parsedOrders.map(order => {
+          if (order.status === 'completed') return order;
+
+          const orderTime = new Date(order.timestamp).getTime();
+          const elapsedSeconds = (now - orderTime) / 1000;
+
+          let targetStatus: Order['status'] = order.status;
+          if (elapsedSeconds >= 15) {
+            targetStatus = 'completed';
+          } else if (elapsedSeconds >= 8) {
+            targetStatus = 'delivering';
+          } else if (elapsedSeconds >= 3) {
+            targetStatus = 'preparing';
+          }
+
+          if (targetStatus !== order.status) {
+            updated = true;
+            return { ...order, status: targetStatus };
+          }
+          return order;
+        });
+
+        if (updated) {
+          localStorage.setItem('resto_orders', JSON.stringify(nextOrders));
+          setOrders(nextOrders);
+          window.dispatchEvent(new Event('storage'));
+        }
+      } catch (err) {
+        console.error('Failed to advance orders in background:', err);
+      }
+    };
+
+    // Run order status advancement check every 2 seconds
+    const statusInterval = setInterval(advanceOrders, 2000);
+    return () => clearInterval(statusInterval);
+  }, []);
+
   const getStatusText = (status: Order['status']) => {
     switch (status) {
       case 'pending':

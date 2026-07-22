@@ -9,7 +9,7 @@ import './restaurant.css';
 // Separate Dashboard Component for clean architecture
 const RestaurantDashboard = ({ restaurant, onLogout }) => {
   const [menuItems, setMenuItems] = useState([]);
-  const [activeTab, setActiveTab] = useState('orders'); // 'orders' or 'menu'
+  const [activeTab, setActiveTab] = useState('orders'); // 'orders', 'menu', 'profile'
   const [orders, setOrders] = useState([]);
 
   // Form states for menu items
@@ -18,6 +18,19 @@ const RestaurantDashboard = ({ restaurant, onLogout }) => {
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [foodType, setFoodType] = useState('Veg'); // 'Veg', 'Non-Veg', 'Egg'
+  const [tag, setTag] = useState('');
+
+  // Profile Form States
+  const [profileName, setProfileName] = useState(restaurant.restaurantName || '');
+  const [profileCity, setProfileCity] = useState(restaurant.city || '');
+  const [profileAddress, setProfileAddress] = useState(restaurant.address || '');
+  const [profileContact, setProfileContact] = useState(restaurant.contact || '');
+  const [profileCuisines, setProfileCuisines] = useState(restaurant.cuisines || 'North Indian, Fast Food');
+  const [profileIsVeg, setProfileIsVeg] = useState(restaurant.isVeg || false);
+  const [profileDeliveryTime, setProfileDeliveryTime] = useState(restaurant.deliveryTime || '25 mins');
+  const [profileCostForTwo, setProfileCostForTwo] = useState(restaurant.costForTwo || '₹300 for two');
+  const [profileImage, setProfileImage] = useState(restaurant.image || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=500&q=80');
 
   // Fetch menu items from localStorage on mount
   useEffect(() => {
@@ -71,6 +84,8 @@ const RestaurantDashboard = ({ restaurant, onLogout }) => {
       price: price.startsWith('₹') || price.startsWith('$') ? price : `₹${price}`,
       description: description || 'No description provided.',
       image: imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80',
+      foodType,
+      tag: tag || ''
     };
 
     const updatedMenu = [...menuItems, newItem];
@@ -82,8 +97,40 @@ const RestaurantDashboard = ({ restaurant, onLogout }) => {
     setPrice('');
     setDescription('');
     setImageUrl('');
+    setTag('');
 
     alert('Menu item added successfully!');
+  };
+
+  const handleUpdateProfile = (e) => {
+    e.preventDefault();
+    try {
+      const stored = localStorage.getItem('restaurants');
+      const allRes = stored ? JSON.parse(stored) : [];
+      
+      const updatedRes = {
+        ...restaurant,
+        restaurantName: profileName,
+        city: profileCity,
+        address: profileAddress,
+        contact: profileContact,
+        cuisines: profileCuisines,
+        isVeg: profileIsVeg,
+        deliveryTime: profileDeliveryTime,
+        costForTwo: profileCostForTwo,
+        image: profileImage
+      };
+
+      const newAllRes = allRes.map((r) => r.id === restaurant.id ? updatedRes : r);
+      localStorage.setItem('restaurants', JSON.stringify(newAllRes));
+      localStorage.setItem('currentRestaurant', JSON.stringify(updatedRes));
+      
+      alert('Profile updated successfully!');
+      window.location.reload();
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+      alert('Error updating profile.');
+    }
   };
 
   const handleDeleteItem = (itemId) => {
@@ -190,6 +237,21 @@ const RestaurantDashboard = ({ restaurant, onLogout }) => {
         >
           🍔 Menu Catalog Management
         </button>
+        <button 
+          onClick={() => setActiveTab('profile')}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: activeTab === 'profile' ? 'var(--accent)' : '#94a3b8',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            padding: '10px 15px',
+            borderBottom: activeTab === 'profile' ? '2.5px solid var(--accent)' : 'none',
+            cursor: 'pointer'
+          }}
+        >
+          ⚙️ Edit Restaurant Profile
+        </button>
       </div>
 
       {activeTab === 'menu' ? (
@@ -241,6 +303,38 @@ const RestaurantDashboard = ({ restaurant, onLogout }) => {
                 />
               </div>
 
+              <div className="input-group">
+                <div className="input-icon">🟢</div>
+                <select
+                  value={foodType}
+                  onChange={(e) => setFoodType(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#94a3b8',
+                    outline: 'none',
+                    fontSize: '14px',
+                    padding: '10px 0',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="Veg" style={{ background: '#0a0f1d', color: '#10b981' }}>🟢 Pure Veg</option>
+                  <option value="Non-Veg" style={{ background: '#0a0f1d', color: '#ef4444' }}>🔴 Non-Veg</option>
+                  <option value="Egg" style={{ background: '#0a0f1d', color: '#f59e0b' }}>🟡 Eggitarian</option>
+                </select>
+              </div>
+
+              <div className="input-group">
+                <div className="input-icon">✨</div>
+                <input
+                  type="text"
+                  placeholder="Item Tag (e.g. Best Seller, Chef Choice)"
+                  value={tag}
+                  onChange={(e) => setTag(e.target.value)}
+                />
+              </div>
+
               <div className="textarea-group">
                 <textarea
                   placeholder="Item Description..."
@@ -267,8 +361,25 @@ const RestaurantDashboard = ({ restaurant, onLogout }) => {
                     <div className="menu-item-left">
                       <img src={item.image} alt={item.name} className="menu-item-avatar" />
                       <div className="menu-item-info">
-                        <h4>{item.name}</h4>
-                        <p>{item.description || item.desc}</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <h4 style={{ margin: 0 }}>{item.name}</h4>
+                          <span style={{
+                            fontSize: '9px',
+                            padding: '1px 6px',
+                            borderRadius: '3px',
+                            border: item.foodType === 'Veg' ? '1px solid #10b981' : item.foodType === 'Egg' ? '1px solid #f59e0b' : '1px solid #ef4444',
+                            color: item.foodType === 'Veg' ? '#10b981' : item.foodType === 'Egg' ? '#f59e0b' : '#ef4444',
+                            fontWeight: 'bold'
+                          }}>
+                            {item.foodType || 'Veg'}
+                          </span>
+                          {item.tag && (
+                            <span style={{ fontSize: '9px', background: 'rgba(255,255,255,0.08)', padding: '1px 6px', borderRadius: '3px', color: '#cbd5e1' }}>
+                              {item.tag}
+                            </span>
+                          )}
+                        </div>
+                        <p style={{ margin: '4px 0 0 0' }}>{item.description || item.desc}</p>
                       </div>
                     </div>
                     <div className="menu-item-right">
@@ -288,7 +399,7 @@ const RestaurantDashboard = ({ restaurant, onLogout }) => {
             </div>
           </div>
         </div>
-      ) : (
+      ) : activeTab === 'orders' ? (
         /* Orders Management Tab */
         <div>
           <h3 className="form-section-title">Active Delivery Orders</h3>
@@ -385,6 +496,42 @@ const RestaurantDashboard = ({ restaurant, onLogout }) => {
               ))}
             </div>
           )}
+        </div>
+      ) : (
+        /* Profile Management Tab */
+        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+          <h3 className="form-section-title">Edit Restaurant Profile Info</h3>
+          <form onSubmit={handleUpdateProfile} className="dashboard-form-container" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <div className="input-group">
+              <span style={{ color: '#cbd5e1', fontSize: '13px', width: '120px', display: 'inline-block' }}>Outlet Name:</span>
+              <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} required />
+            </div>
+            <div className="input-group">
+              <span style={{ color: '#cbd5e1', fontSize: '13px', width: '120px', display: 'inline-block' }}>City:</span>
+              <input type="text" value={profileCity} onChange={(e) => setProfileCity(e.target.value)} required />
+            </div>
+            <div className="input-group">
+              <span style={{ color: '#cbd5e1', fontSize: '13px', width: '120px', display: 'inline-block' }}>Cuisines:</span>
+              <input type="text" placeholder="Burgers, Chinese, Desserts" value={profileCuisines} onChange={(e) => setProfileCuisines(e.target.value)} required />
+            </div>
+            <div className="input-group">
+              <span style={{ color: '#cbd5e1', fontSize: '13px', width: '120px', display: 'inline-block' }}>Delivery Time:</span>
+              <input type="text" placeholder="25 mins" value={profileDeliveryTime} onChange={(e) => setProfileDeliveryTime(e.target.value)} required />
+            </div>
+            <div className="input-group">
+              <span style={{ color: '#cbd5e1', fontSize: '13px', width: '120px', display: 'inline-block' }}>Cost for Two:</span>
+              <input type="text" placeholder="₹300 for two" value={profileCostForTwo} onChange={(e) => setProfileCostForTwo(e.target.value)} required />
+            </div>
+            <div className="input-group">
+              <span style={{ color: '#cbd5e1', fontSize: '13px', width: '120px', display: 'inline-block' }}>Banner Image URL:</span>
+              <input type="url" value={profileImage} onChange={(e) => setProfileImage(e.target.value)} required />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0' }}>
+              <input type="checkbox" id="profileIsVeg" checked={profileIsVeg} onChange={(e) => setProfileIsVeg(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+              <label htmlFor="profileIsVeg" style={{ color: '#cbd5e1', fontSize: '14px', cursor: 'pointer', fontWeight: 'bold' }}>🟢 Pure Veg Outlet (All dishes are vegetarian)</label>
+            </div>
+            <button type="submit" className="primary-btn">Save Profile Changes</button>
+          </form>
         </div>
       )}
     </div>

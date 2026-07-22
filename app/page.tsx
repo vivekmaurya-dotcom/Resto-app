@@ -17,7 +17,8 @@ export default function Home() {
   // States for Explore Dishes Feed per user request
   const [feedTab, setFeedTab] = useState<'restaurants' | 'dishes'>('restaurants');
   const [dishSearchQuery, setDishSearchQuery] = useState('');
-  const [vegOnlyFilter, setVegOnlyFilter] = useState(false);
+  const [foodTypeFilter, setFoodTypeFilter] = useState<'All' | 'Veg' | 'Non-Veg' | 'Egg'>('All');
+  const [activeCuisineFilter, setActiveCuisineFilter] = useState('All');
   const [activeCategory, setActiveCategory] = useState('All');
   const [allDishes, setAllDishes] = useState<any[]>([]);
   const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
@@ -29,11 +30,24 @@ export default function Home() {
   // Initialize and load restaurants
   useEffect(() => {
     try {
+      const CURRENT_VERSION = 'resto_db_v6_rolls_fixed';
+      const storedVersion = localStorage.getItem('resto_db_version');
+
+      if (storedVersion !== CURRENT_VERSION) {
+        localStorage.removeItem('restaurants');
+        // Clear menu keys for default seed restaurants
+        for (let i = 1; i <= 6; i++) {
+          localStorage.removeItem(`restaurant_menu_res-${i}`);
+        }
+        localStorage.setItem('resto_db_version', CURRENT_VERSION);
+      }
+
       const stored = localStorage.getItem('restaurants');
       if (stored) {
         const parsed = JSON.parse(stored);
+        const hasSeedRestaurants = parsed.some((r: any) => r.id.startsWith('res-'));
         const usesOldImages = parsed.some((r: any) => r.image && r.image.includes('unsplash.com') && r.id.startsWith('res-'));
-        if (parsed.length > 0 && !usesOldImages) {
+        if (parsed.length > 0 && hasSeedRestaurants && !usesOldImages) {
           setRestaurants(parsed);
         } else {
           const customPartners = parsed.filter((r: any) => !r.id.startsWith('res-'));
@@ -68,9 +82,19 @@ export default function Home() {
         const storedCustom = localStorage.getItem(`restaurant_menu_${res.id}`);
         const customDishes = storedCustom ? JSON.parse(storedCustom) : [];
 
+        const formattedDefaults = defaultDishes.map((dish) => {
+          const hasEgg = dish.name.toLowerCase().includes('egg') || dish.category.toLowerCase().includes('egg');
+          return {
+            ...dish,
+            foodType: hasEgg ? 'Egg' : (dish.isVeg ? 'Veg' : 'Non-Veg')
+          };
+        });
+
         const formattedCustom = customDishes.map((item: any) => {
           const rawPrice = item.price.toString();
           const cleanPrice = rawPrice.startsWith('₹') || rawPrice.startsWith('$') ? rawPrice : `₹${rawPrice}`;
+          const isVegDefault = item.category.toLowerCase().includes('veg') || item.name.toLowerCase().includes('veg');
+          const finalFoodType = item.foodType || (isVegDefault ? 'Veg' : 'Non-Veg');
           return {
             id: item.id,
             name: item.name,
@@ -80,12 +104,12 @@ export default function Home() {
             tag: item.tag || 'Chef Special',
             desc: item.description || '',
             image: item.image,
-            isVeg: item.category.toLowerCase().includes('veg') || item.name.toLowerCase().includes('veg')
+            isVeg: finalFoodType === 'Veg' || finalFoodType === 'Egg',
+            foodType: finalFoodType
           };
         });
 
-
-        const merged = [...defaultDishes, ...formattedCustom];
+        const merged = [...formattedDefaults, ...formattedCustom];
         merged.forEach((dish) => {
           compiledList.push({
             ...dish,
@@ -191,6 +215,11 @@ export default function Home() {
 
     if (!matchesSearch) return false;
 
+    // Filter by active cuisine type
+    if (activeCuisineFilter !== 'All') {
+      if (!cuisines.includes(activeCuisineFilter.toLowerCase())) return false;
+    }
+
     if (activeFilter === 'All') return true;
     if (activeFilter === 'Rating 4.5+') return parseFloat(res.rating || '4.2') >= 4.5;
     if (activeFilter === 'Pure Veg') return res.isVeg === true;
@@ -213,15 +242,23 @@ export default function Home() {
   // Unique Categories extraction for Dishes Feed
   const dishCategories = ['All', ...Array.from(new Set(allDishes.map((d) => d.category)))];
 
-  // Apply search, veg-toggle, and category filters to Dishes Feed
+  // Apply search, foodType-toggle, and category filters to Dishes Feed
   const filteredDishes = allDishes.filter((dish) => {
     const matchesCategory = activeCategory === 'All' || dish.category === activeCategory;
     const matchesSearch = dish.name.toLowerCase().includes(dishSearchQuery.toLowerCase()) ||
       (dish.desc && dish.desc.toLowerCase().includes(dishSearchQuery.toLowerCase())) ||
       dish.restaurantName.toLowerCase().includes(dishSearchQuery.toLowerCase());
-    const matchesVeg = !vegOnlyFilter || dish.isVeg === true;
 
-    return matchesCategory && matchesSearch && matchesVeg;
+    let matchesType = true;
+    if (foodTypeFilter === 'Veg') {
+      matchesType = dish.foodType === 'Veg';
+    } else if (foodTypeFilter === 'Non-Veg') {
+      matchesType = dish.foodType === 'Non-Veg';
+    } else if (foodTypeFilter === 'Egg') {
+      matchesType = dish.foodType === 'Egg';
+    }
+
+    return matchesCategory && matchesSearch && matchesType;
   });
 
   return (
@@ -420,6 +457,20 @@ export default function Home() {
               ))}
             </div>
 
+            {/* Cuisine Filter Navigation Tabs */}
+            <div className="category-tabs" style={{ overflowX: 'auto', whiteSpace: 'nowrap', paddingBottom: '10px', justifyContent: 'flex-start', marginBottom: '30px', borderBottom: '1px solid rgba(255,255,255,0.04)', gap: '8px' }}>
+              {['All', 'Burgers', 'Pizza', 'Chinese', 'Healthy', 'Desserts', 'South Indian', 'Snacks', 'Drinks'].map((cuisine) => (
+                <button
+                  key={cuisine}
+                  className={`category-btn ${activeCuisineFilter === cuisine ? 'active' : ''}`}
+                  onClick={() => setActiveCuisineFilter(cuisine)}
+                  style={{ padding: '8px 20px', fontSize: '13px' }}
+                >
+                  {cuisine}
+                </button>
+              ))}
+            </div>
+
             {/* Dynamic Restaurant Cards Grid */}
             {!isLoaded ? (
               <div style={{ textAlign: 'center', color: '#94a3b8', margin: '40px 0' }}>Loading restaurants...</div>
@@ -451,7 +502,7 @@ export default function Home() {
                         <div>
                           <div className="menu-header">
                             <h3 className="menu-name" style={{ fontSize: '20px', fontWeight: '700' }}>{res.restaurantName}</h3>
-                            <div className="menu-rating" style={{ background: parseFloat(res.rating || '0') >= 4.5 ? '#10b981' : '#f59e0b' }}>
+                            <div className="menu-rating" style={{ background: parseFloat(res.rating || '0') >= 4.5 ? '#10b981' : '#f59e0b', color: 'white' }}>
                               <span>★</span>
                               <span>{res.rating || '4.0'}</span>
                             </div>
@@ -461,16 +512,23 @@ export default function Home() {
                           </p>
                         </div>
 
-                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px', marginTop: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#cbd5e1' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            🕒 {res.deliveryTime || '25 mins'}
-                          </span>
-                          <span>
-                            💰 {res.costForTwo || '₹300 for two'}
-                          </span>
-                          <span style={{ color: 'var(--accent)', fontWeight: '600' }}>
-                            📍 {res.city}
-                          </span>
+                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px', marginTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#cbd5e1' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              🕒 {res.deliveryTime || '25 mins'}
+                            </span>
+                            <span>
+                              💰 {res.costForTwo || '₹300 for two'}
+                            </span>
+                          </div>
+                          
+                          <button style={{ background: 'var(--accent)', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '20px', fontWeight: '700', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', boxShadow: '0 4px 10px rgba(249, 115, 22, 0.2)' }}>
+                            View Menu
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="5" y1="12" x2="19" y2="12"></line>
+                              <polyline points="12 5 19 12 12 19"></polyline>
+                            </svg>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -506,35 +564,27 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Veg switch */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '13px', color: '#cbd5e1', fontWeight: 'bold' }}>🟢 Pure Veg Only</span>
-                <button
-                  onClick={() => setVegOnlyFilter(!vegOnlyFilter)}
-                  style={{
-                    width: '42px',
-                    height: '22px',
-                    borderRadius: '20px',
-                    background: vegOnlyFilter ? '#10b981' : 'rgba(255,255,255,0.1)',
-                    border: 'none',
-                    position: 'relative',
-                    cursor: 'pointer',
-                    transition: 'all 0.25s'
-                  }}
-                >
-                  <span
+              {/* Food Type filter buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                {(['All', 'Veg', 'Non-Veg', 'Egg'] as const).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setFoodTypeFilter(type)}
                     style={{
-                      width: '14px',
-                      height: '14px',
-                      borderRadius: '50%',
-                      background: 'white',
-                      position: 'absolute',
-                      top: '4px',
-                      left: vegOnlyFilter ? '24px' : '4px',
-                      transition: 'all 0.25s'
+                      background: foodTypeFilter === type ? 'var(--accent)' : 'transparent',
+                      color: 'white',
+                      border: 'none',
+                      padding: '6px 14px',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
                     }}
-                  />
-                </button>
+                  >
+                    {type === 'Veg' ? '🟢 Veg' : type === 'Non-Veg' ? '🔴 Non-Veg' : type === 'Egg' ? '🟡 Egg' : 'All'}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -558,24 +608,42 @@ export default function Home() {
                 No dishes found matching your search criteria.
               </div>
             ) : (
-              <div className="menu-grid" style={{ gridTemplateColumns: '1fr', gap: '16px' }}>
+              <div className="menu-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '16px' }}>
                 {filteredDishes.map((dish) => (
-                  <div key={`${dish.restaurantId}-${dish.id}`} className="menu-card flex flex-col md:flex-row items-center gap-6 p-6 border border-white/5">
+                  <div key={`${dish.restaurantId}-${dish.id}`} className="menu-card flex flex-col md:flex-row items-center gap-3 p-3 border border-white/5">
 
                     {/* Dish Thumbnail */}
-                    <div className="w-[130px] h-[130px] rounded-2xl overflow-hidden border border-white/10 shrink-0">
+                    <div className="w-[150px] h-[150px] rounded-2xl overflow-hidden border-2 border-white/15 shrink-0 shadow-md relative group">
                       <img
                         src={dish.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80'}
                         alt={dish.name}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        className="transition-transform duration-300 group-hover:scale-110"
                       />
                     </div>
 
                     {/* Details */}
                     <div style={{ flexGrow: 1, textAlign: 'left', width: '100%' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '10px', display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: '4px', border: dish.isVeg ? '1px solid #10b981' : '1px solid #ef4444', color: dish.isVeg ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
-                          {dish.isVeg ? '🟢 Veg' : '🔴 Non-Veg'}
+                        <span style={{
+                          fontSize: '10px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          border: dish.foodType === 'Veg'
+                            ? '1px solid #10b981'
+                            : dish.foodType === 'Egg'
+                              ? '1px solid #f59e0b'
+                              : '1px solid #ef4444',
+                          color: dish.foodType === 'Veg'
+                            ? '#10b981'
+                            : dish.foodType === 'Egg'
+                              ? '#f59e0b'
+                              : '#ef4444',
+                          fontWeight: 'bold'
+                        }}>
+                          {dish.foodType === 'Veg' ? '🟢 Veg' : dish.foodType === 'Egg' ? '🟡 Egg' : '🔴 Non-Veg'}
                         </span>
 
                         {/* Best Seller / New Badge tags */}

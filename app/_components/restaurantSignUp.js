@@ -9,6 +9,11 @@ const RestaurantSignUp = ({ toggleView }) => {
   const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
   const [contact, setContact] = useState('');
+  const [cuisines, setCuisines] = useState('');
+  const [isVeg, setIsVeg] = useState(false);
+  const [deliveryTime, setDeliveryTime] = useState('25 mins');
+  const [costForTwo, setCostForTwo] = useState('₹300 for two');
+  const [image, setImage] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -25,6 +30,13 @@ const RestaurantSignUp = ({ toggleView }) => {
       city,
       address,
       contact,
+      cuisines: cuisines || 'North Indian, Fast Food',
+      isVeg,
+      deliveryTime: deliveryTime || '25 mins',
+      costForTwo: costForTwo || '₹300 for two',
+      image: image || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=500&q=80',
+      rating: '4.5',
+      tag: 'New Outlet'
     };
 
     try {
@@ -156,6 +168,64 @@ const RestaurantSignUp = ({ toggleView }) => {
             onChange={(e) => setContact(e.target.value)}
             required
           />
+        </div>
+
+        <div className="input-group">
+          <div className="input-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            placeholder="Cuisines (e.g. Burgers, Pizza, Chinese)"
+            value={cuisines}
+            onChange={(e) => setCuisines(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="input-group">
+          <div className="input-icon">⏱️</div>
+          <input
+            type="text"
+            placeholder="Average Delivery Time (e.g. 25 mins)"
+            value={deliveryTime}
+            onChange={(e) => setDeliveryTime(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="input-group">
+          <div className="input-icon">₹</div>
+          <input
+            type="text"
+            placeholder="Cost For Two (e.g. ₹300 for two)"
+            value={costForTwo}
+            onChange={(e) => setCostForTwo(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="input-group">
+          <div className="input-icon">🖼️</div>
+          <input
+            type="url"
+            placeholder="Banner Image URL (Unsplash etc.)"
+            value={image}
+            onChange={(e) => setImage(e.target.value)}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', width: '100%' }}>
+          <input
+            type="checkbox"
+            id="isVegCheckbox"
+            checked={isVeg}
+            onChange={(e) => setIsVeg(e.target.checked)}
+            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+          />
+          <label htmlFor="isVegCheckbox" style={{ color: '#cbd5e1', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold' }}>🟢 Pure Veg Restaurant</label>
         </div>
 
         <button type="submit" className="primary-btn">

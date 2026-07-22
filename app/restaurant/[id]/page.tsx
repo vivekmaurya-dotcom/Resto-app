@@ -29,7 +29,7 @@ export default function RestaurantDetailPage() {
   // Custom detailed states per user request
   const [detailTab, setDetailTab] = useState<'menu' | 'reviews'>('menu');
   const [dishSearchQuery, setDishSearchQuery] = useState('');
-  const [vegOnlyFilter, setVegOnlyFilter] = useState(false);
+  const [foodTypeFilter, setFoodTypeFilter] = useState<'All' | 'Veg' | 'Non-Veg' | 'Egg'>('All');
 
   // Conflict Modal State
   const [showConflictModal, setShowConflictModal] = useState(false);
@@ -39,6 +39,17 @@ export default function RestaurantDetailPage() {
     if (!id) return;
 
     try {
+      const CURRENT_VERSION = 'resto_db_v6_rolls_fixed';
+      const storedVersion = localStorage.getItem('resto_db_version');
+
+      if (storedVersion !== CURRENT_VERSION) {
+        localStorage.removeItem('restaurants');
+        for (let i = 1; i <= 6; i++) {
+          localStorage.removeItem(`restaurant_menu_res-${i}`);
+        }
+        localStorage.setItem('resto_db_version', CURRENT_VERSION);
+      }
+
       // Find restaurant detail
       const storedRes = localStorage.getItem('restaurants');
       const allRes = storedRes ? JSON.parse(storedRes) : SEED_RESTAURANTS;
@@ -53,23 +64,34 @@ export default function RestaurantDetailPage() {
         const storedCustom = localStorage.getItem(`restaurant_menu_${id}`);
         const customDishes = storedCustom ? JSON.parse(storedCustom) : [];
 
+        const formattedDefaults = defaults.map((dish) => {
+          const hasEgg = dish.name.toLowerCase().includes('egg') || dish.category.toLowerCase().includes('egg');
+          return {
+            ...dish,
+            foodType: hasEgg ? 'Egg' : (dish.isVeg ? 'Veg' : 'Non-Veg')
+          };
+        });
+
         const formattedCustom = customDishes.map((item: any) => {
           const rawPrice = item.price.toString();
           const cleanPrice = rawPrice.startsWith('₹') || rawPrice.startsWith('$') ? rawPrice : `₹${rawPrice}`;
+          const isVegDefault = item.category.toLowerCase().includes('veg') || item.name.toLowerCase().includes('veg');
+          const finalFoodType = item.foodType || (isVegDefault ? 'Veg' : 'Non-Veg');
           return {
             id: item.id,
             name: item.name,
             category: item.category,
             price: cleanPrice,
             rating: 4.5,
-            tag: 'Chef Choice',
-            desc: item.description,
+            tag: item.tag || 'Chef Choice',
+            desc: item.description || '',
             image: item.image,
-            isVeg: item.category.toLowerCase().includes('veg') || item.name.toLowerCase().includes('veg')
+            isVeg: finalFoodType === 'Veg' || finalFoodType === 'Egg',
+            foodType: finalFoodType
           };
         });
 
-        setMenuItems([...defaults, ...formattedCustom]);
+        setMenuItems([...formattedDefaults, ...formattedCustom]);
       } else {
         router.push('/');
       }
@@ -111,7 +133,7 @@ export default function RestaurantDetailPage() {
 
   const handleConfirmConflict = () => {
     if (!pendingItem) return;
-    
+
     addToCart(
       {
         id: pendingItem.id,
@@ -148,10 +170,18 @@ export default function RestaurantDetailPage() {
   const filteredDishes = menuItems.filter((item) => {
     const matchesCategory = activeCategory === 'All' || item.category === activeCategory;
     const matchesSearch = item.name.toLowerCase().includes(dishSearchQuery.toLowerCase()) ||
-                          item.desc.toLowerCase().includes(dishSearchQuery.toLowerCase());
-    const matchesVeg = !vegOnlyFilter || item.isVeg === true;
+      (item.desc && item.desc.toLowerCase().includes(dishSearchQuery.toLowerCase()));
 
-    return matchesCategory && matchesSearch && matchesVeg;
+    let matchesType = true;
+    if (foodTypeFilter === 'Veg') {
+      matchesType = item.foodType === 'Veg';
+    } else if (foodTypeFilter === 'Non-Veg') {
+      matchesType = item.foodType === 'Non-Veg';
+    } else if (foodTypeFilter === 'Egg') {
+      matchesType = item.foodType === 'Egg';
+    }
+
+    return matchesCategory && matchesSearch && matchesType;
   });
 
   return (
@@ -162,6 +192,14 @@ export default function RestaurantDetailPage() {
           Resto<span>App</span>
         </Link>
         <div className="header-actions">
+          <Link href="/orders" className="cart-text-btn" style={{ marginRight: '15px', fontSize: '14px', textDecoration: 'none' }} title="Order History">
+            My Orders
+          </Link>
+
+          <Link href="/profile" className="cart-text-btn" style={{ marginRight: '15px', fontSize: '14px', textDecoration: 'none' }} title="User Profile">
+            My Profile
+          </Link>
+
           <Link href="/" className="cart-text-btn" style={{ marginRight: '20px', fontSize: '14px', textDecoration: 'none' }}>
             ← Explore Menu
           </Link>
@@ -181,8 +219,8 @@ export default function RestaurantDetailPage() {
       <section className="hero" style={{ padding: '40px 8%', minHeight: 'auto', background: 'radial-gradient(ellipse at bottom, #131c31 0%, #0a0f1d 100%)' }}>
         <div className="flex flex-col md:flex-row items-center gap-10 w-full">
           <div className="flex-[1_1_300px] w-full max-w-[400px] h-[250px] relative rounded-[24px] overflow-hidden border border-white/8">
-            <img 
-              src={restaurant.image || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=500&q=80'} 
+            <img
+              src={restaurant.image || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=500&q=80'}
               alt={restaurant.restaurantName}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
@@ -192,7 +230,7 @@ export default function RestaurantDetailPage() {
               </span>
             )}
           </div>
-          
+
           <div style={{ flex: '2 1 400px', width: '100%' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'center', marginBottom: '15px' }}>
               <span className="hero-tagline" style={{ marginBottom: 0 }}>📍 {restaurant.city}</span>
@@ -218,6 +256,52 @@ export default function RestaurantDetailPage() {
                 <span style={{ fontSize: '13px' }}>{restaurant.address}</span>
               </div>
             </div>
+
+            {menuItems.length > 0 && (
+              <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-start' }}>
+                <button
+                  onClick={() => {
+                    const featured = menuItems.find(item => item.tag.toLowerCase().includes('trending') || item.tag.toLowerCase().includes('seller')) || menuItems[0];
+                    if (featured) {
+                      addToCart(
+                        {
+                          id: featured.id,
+                          name: featured.name,
+                          price: featured.price,
+                          image: featured.image,
+                          desc: featured.desc,
+                          category: featured.category
+                        },
+                        restaurant.id,
+                        restaurant.restaurantName
+                      );
+                      setIsCartOpen(true);
+                      triggerToast(`Added featured ${featured.name} to cart!`);
+                    }
+                  }}
+                  style={{
+                    background: 'var(--accent)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 28px',
+                    borderRadius: '30px',
+                    fontWeight: '800',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    boxShadow: '0 6px 20px rgba(249, 115, 22, 0.4)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <span>🛒 Add Popular Combo to Cart</span>
+                  <span style={{ fontSize: '11px', background: 'rgba(255,255,255,0.2)', padding: '3px 10px', borderRadius: '20px', fontWeight: '700' }}>
+                    {menuItems.find(item => item.tag.toLowerCase().includes('trending') || item.tag.toLowerCase().includes('seller'))?.name || menuItems[0].name}
+                  </span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -225,10 +309,10 @@ export default function RestaurantDetailPage() {
       {/* Menu & Reviews Content Section */}
       <section className="menu-section" style={{ padding: '40px 8%' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
+
           {/* Navigation Tabs - Menu vs Reviews */}
           <div style={{ display: 'flex', gap: '15px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '10px' }}>
-            <button 
+            <button
               onClick={() => setDetailTab('menu')}
               style={{
                 background: 'transparent',
@@ -243,7 +327,7 @@ export default function RestaurantDetailPage() {
             >
               🍔 Explore Menu Categories
             </button>
-            <button 
+            <button
               onClick={() => setDetailTab('reviews')}
               style={{
                 background: 'transparent',
@@ -282,35 +366,27 @@ export default function RestaurantDetailPage() {
                   </div>
                 </div>
 
-                {/* Veg filter switch */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '13px', color: '#cbd5e1', fontWeight: 'bold' }}>🟢 Pure Veg Only</span>
-                  <button 
-                    onClick={() => setVegOnlyFilter(!vegOnlyFilter)}
-                    style={{
-                      width: '42px',
-                      height: '22px',
-                      borderRadius: '20px',
-                      background: vegOnlyFilter ? '#10b981' : 'rgba(255,255,255,0.1)',
-                      border: 'none',
-                      position: 'relative',
-                      cursor: 'pointer',
-                      transition: 'all 0.25s'
-                    }}
-                  >
-                    <span 
+                {/* Food Type filter buttons */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  {(['All', 'Veg', 'Non-Veg', 'Egg'] as const).map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => setFoodTypeFilter(type)}
                       style={{
-                        width: '14px',
-                        height: '14px',
-                        borderRadius: '50%',
-                        background: 'white',
-                        position: 'absolute',
-                        top: '4px',
-                        left: vegOnlyFilter ? '24px' : '4px',
-                        transition: 'all 0.25s'
+                        background: foodTypeFilter === type ? 'var(--accent)' : 'transparent',
+                        color: 'white',
+                        border: 'none',
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
                       }}
-                    />
-                  </button>
+                    >
+                      {type === 'Veg' ? '🟢 Veg' : type === 'Non-Veg' ? '🔴 Non-Veg' : type === 'Egg' ? '🟡 Egg' : 'All'}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -334,35 +410,54 @@ export default function RestaurantDetailPage() {
                   No dishes found matching your selection.
                 </div>
               ) : (
-                <div className="menu-grid" style={{ gridTemplateColumns: '1fr', gap: '16px' }}>
+                <div className="menu-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '16px' }}>
                   {filteredDishes.map((dish) => (
-                    <div key={dish.id} className="menu-card flex flex-col md:flex-row items-center gap-6 p-6 border border-white/5">
-                      
+                    <div key={dish.id}
+                      className="menu-card flex flex-col md:flex-row items-center gap-3 p-3 border border-white/5">
+
                       {/* Dish thumbnail */}
-                      <div className="w-[130px] h-[130px] rounded-2xl overflow-hidden border border-white/10 shrink-0">
-                        <img 
-                          src={dish.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80'} 
+                      <div className="w-[120px] h-[120px] rounded-2xl overflow-hidden border-2 border-white/15 shrink-0 shadow-md relative group">
+                        <img
+                          src={dish.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80'}
                           alt={dish.name}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          className="transition-transform duration-300 group-hover:scale-110"
                         />
                       </div>
 
                       {/* Details */}
                       <div style={{ flexGrow: 1, textAlign: 'left', width: '100%' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                          <span style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: '4px', border: dish.isVeg ? '1px solid #10b981' : '1px solid #ef4444', color: dish.isVeg ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
-                            {dish.isVeg ? '🟢 Veg' : '🔴 Non-Veg'}
+                          <span style={{
+                            fontSize: '11px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            border: dish.foodType === 'Veg'
+                              ? '1px solid #10b981'
+                              : dish.foodType === 'Egg'
+                                ? '1px solid #f59e0b'
+                                : '1px solid #ef4444',
+                            color: dish.foodType === 'Veg'
+                              ? '#10b981'
+                              : dish.foodType === 'Egg'
+                                ? '#f59e0b'
+                                : '#ef4444',
+                            fontWeight: 'bold'
+                          }}>
+                            {dish.foodType === 'Veg' ? '🟢 Veg' : dish.foodType === 'Egg' ? '🟡 Egg' : '🔴 Non-Veg'}
                           </span>
-                          
+
                           {/* Best Seller / New tags */}
                           {dish.tag && (
-                            <span style={{ 
-                              background: dish.tag.toLowerCase().includes('seller') ? 'rgba(249, 115, 22, 0.15)' : 'rgba(59, 130, 246, 0.15)', 
-                              color: dish.tag.toLowerCase().includes('seller') ? '#f97316' : '#3b82f6', 
+                            <span style={{
+                              background: dish.tag.toLowerCase().includes('seller') ? 'rgba(249, 115, 22, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                              color: dish.tag.toLowerCase().includes('seller') ? '#f97316' : '#3b82f6',
                               border: dish.tag.toLowerCase().includes('seller') ? '1px solid rgba(249, 115, 22, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)',
-                              fontSize: '10px', 
-                              fontWeight: '700', 
-                              padding: '2px 8px', 
+                              fontSize: '10px',
+                              fontWeight: '700',
+                              padding: '2px 8px',
                               borderRadius: '4px',
                               textTransform: 'uppercase'
                             }}>
@@ -380,7 +475,7 @@ export default function RestaurantDetailPage() {
                       </div>
 
                       {/* Add button */}
-                      <div className="shrink-0 w-full md:w-auto flex justify-end">
+                      < div className="shrink-0 w-full md:w-auto flex justify-end" >
                         <button
                           onClick={() => handleAddItem(dish)}
                           style={{ background: 'var(--accent)', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '30px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px' }}
@@ -436,8 +531,8 @@ export default function RestaurantDetailPage() {
               {/* Review Comments list */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {MOCK_REVIEWS.map((review) => (
-                  <div 
-                    key={review.id} 
+                  <div
+                    key={review.id}
                     style={{
                       borderBottom: '1px solid rgba(255,255,255,0.06)',
                       paddingBottom: '20px',
@@ -465,66 +560,70 @@ export default function RestaurantDetailPage() {
           )}
 
         </div>
-      </section>
+      </section >
 
       {/* Floating Bottom Cart Bar */}
-      {cartTotal > 0 && (
-        <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: '700px', background: 'rgba(249, 115, 22, 0.95)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 28px', borderRadius: '16px', zIndex: 99, boxShadow: '0 8px 30px rgba(0,0,0,0.5)' }}>
-          <div style={{ textAlign: 'left' }}>
-            <span style={{ fontSize: '12px', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold' }}>Cart Items</span>
-            <h4 style={{ margin: '2px 0 0 0', fontWeight: '700' }}>
-              {cartTotal} {cartTotal === 1 ? 'item' : 'items'} in basket from {cartRestaurantName}
-            </h4>
+      {
+        cartTotal > 0 && (
+          <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: '700px', background: 'rgba(249, 115, 22, 0.95)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 28px', borderRadius: '16px', zIndex: 99, boxShadow: '0 8px 30px rgba(0,0,0,0.5)' }}>
+            <div style={{ textAlign: 'left' }}>
+              <span style={{ fontSize: '12px', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold' }}>Cart Items</span>
+              <h4 style={{ margin: '2px 0 0 0', fontWeight: '700' }}>
+                {cartTotal} {cartTotal === 1 ? 'item' : 'items'} in basket from {cartRestaurantName}
+              </h4>
+            </div>
+            <button
+              onClick={() => setIsCartOpen(true)}
+              style={{ background: 'white', color: 'var(--accent)', border: 'none', padding: '8px 18px', borderRadius: '8px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <span>View Cart</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </button>
           </div>
-          <button
-            onClick={() => setIsCartOpen(true)}
-            style={{ background: 'white', color: 'var(--accent)', border: 'none', padding: '8px 18px', borderRadius: '8px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <span>View Cart</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-              <polyline points="12 5 19 12 12 19"></polyline>
-            </svg>
-          </button>
-        </div>
-      )}
+        )
+      }
 
       {/* Conflict Modal */}
-      {showConflictModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(8px)' }}>
-          <div style={{ background: 'rgba(19, 28, 49, 0.98)', border: '1px solid rgba(255,255,255,0.1)', padding: '32px', borderRadius: '24px', maxWidth: '440px', width: '90%', textAlign: 'center', boxShadow: '0 12px 40px rgba(0,0,0,0.5)', margin: 'auto' }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
-            <h3 style={{ fontSize: '20px', fontWeight: '800', color: 'white', marginBottom: '12px' }}>Items Already in Cart</h3>
-            <p style={{ fontSize: '14px', color: '#cbd5e1', lineHeight: '1.6', marginBottom: '24px' }}>
-              Your basket already contains items from <strong>{cartRestaurantName}</strong>. 
-              Do you want to discard your cart selection and add dishes from <strong>{restaurant.restaurantName}</strong> instead?
-            </p>
-            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-              <button 
-                onClick={() => {
-                  setShowConflictModal(false);
-                  setPendingItem(null);
-                }}
-                style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', flex: 1 }}
-              >
-                No, Keep Old
-              </button>
-              <button 
-                onClick={handleConfirmConflict}
-                style={{ background: 'var(--accent)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', flex: 1 }}
-              >
-                Yes, Start New
-              </button>
+      {
+        showConflictModal && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(8px)' }}>
+            <div style={{ background: 'rgba(19, 28, 49, 0.98)', border: '1px solid rgba(255,255,255,0.1)', padding: '32px', borderRadius: '24px', maxWidth: '440px', width: '90%', textAlign: 'center', boxShadow: '0 12px 40px rgba(0,0,0,0.5)', margin: 'auto' }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+              <h3 style={{ fontSize: '20px', fontWeight: '800', color: 'white', marginBottom: '12px' }}>Items Already in Cart</h3>
+              <p style={{ fontSize: '14px', color: '#cbd5e1', lineHeight: '1.6', marginBottom: '24px' }}>
+                Your basket already contains items from <strong>{cartRestaurantName}</strong>.
+                Do you want to discard your cart selection and add dishes from <strong>{restaurant.restaurantName}</strong> instead?
+              </p>
+              <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+                <button
+                  onClick={() => {
+                    setShowConflictModal(false);
+                    setPendingItem(null);
+                  }}
+                  style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', flex: 1 }}
+                >
+                  No, Keep Old
+                </button>
+                <button
+                  onClick={handleConfirmConflict}
+                  style={{ background: 'var(--accent)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', flex: 1 }}
+                >
+                  Yes, Start New
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Toast Notification */}
       <div className={`cart-toast ${toast.show ? 'show' : ''}`}>
         <div className="toast-icon">✨</div>
         <div className="toast-message">{toast.message}</div>
       </div>
-    </div>
+    </div >
   );
 }

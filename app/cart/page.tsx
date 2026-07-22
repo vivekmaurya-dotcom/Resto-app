@@ -86,7 +86,7 @@ export default function CartPage() {
         if (!stored) return;
         const orders = JSON.parse(stored);
         const activeOrder = orders.find((o: any) => o.id === activeOrderId);
-        
+
         if (activeOrder) {
           const status = activeOrder.status;
           if (status === 'pending') {
@@ -182,7 +182,7 @@ export default function CartPage() {
 
       <div className="flex-grow flex items-center justify-center p-4 md:p-8">
         <div className="max-w-4xl mx-auto w-full">
-          
+
           {checkoutStep === 'idle' ? (
             <div className="space-y-6">
               {/* Header Title */}
@@ -233,7 +233,7 @@ export default function CartPage() {
                                 <span className="cart-item-price-tag">{item.price}</span>
                               </div>
                               <span className="cart-item-category">{item.category}</span>
-                              
+
                               <div className="cart-item-footer">
                                 <div className="quantity-adjuster">
                                   <button
@@ -281,7 +281,7 @@ export default function CartPage() {
                     {/* Address & Payment Form card */}
                     <div className="bg-[#131c31]/50 border border-white/5 p-5 rounded-2xl space-y-4">
                       <h4 className="font-bold text-sm text-slate-300 uppercase tracking-wider">Delivery Details</h4>
-                      
+
                       <div className="space-y-1">
                         <label className="text-xs text-slate-400 font-bold">Delivering To address:</label>
                         <textarea
@@ -293,14 +293,14 @@ export default function CartPage() {
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 pt-2">
-                        <div 
+                        <div
                           onClick={() => setPaymentMethod('cod')}
                           className={`border rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer transition-all ${paymentMethod === 'cod' ? 'border-[#f97316] bg-[#f97316]/5' : 'border-white/10 hover:border-white/20'}`}
                         >
                           <span className="text-2xl mb-1">💵</span>
                           <span className="text-xs font-bold">Cash on Delivery</span>
                         </div>
-                        <div 
+                        <div
                           onClick={() => setPaymentMethod('online')}
                           className={`border rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer transition-all ${paymentMethod === 'online' ? 'border-[#f97316] bg-[#f97316]/5' : 'border-white/10 hover:border-white/20'}`}
                         >
@@ -328,13 +328,13 @@ export default function CartPage() {
                         <span>{formatPrice(tax)}</span>
                       </div>
                     </div>
-                    
+
                     {deliveryFee > 0 && (
                       <p className="text-[11px] text-green-400 bg-green-500/10 p-2 rounded-lg text-center font-bold">
                         💡 Tip: Add items worth ₹{(300 - cartSubtotal).toFixed(0)} more for FREE delivery!
                       </p>
                     )}
-                    
+
                     <hr className="border-white/10" />
                     <div className="flex justify-between font-bold text-lg text-white">
                       <span>To Pay</span>
@@ -356,11 +356,11 @@ export default function CartPage() {
             /* Live Order Tracking Screens (Centered full-screen layout) */
             <div className="bg-[#131c31]/80 backdrop-blur-xl border border-white/10 rounded-[32px] p-6 md:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.4)] text-center max-w-md mx-auto">
               <div className="order-tracking-container" style={{ display: 'block' }}>
-                
+
                 {/* Simulator Mode Bar Toggle */}
                 <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
                   <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 'bold' }}>🧪 Driver Simulator</span>
-                  <button 
+                  <button
                     onClick={() => setIsSandboxSimulate(!isSandboxSimulate)}
                     style={{ background: isSandboxSimulate ? '#10b981' : 'rgba(255,255,255,0.1)', color: 'white', border: 'none', padding: '3px 12px', borderRadius: '20px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}
                   >
@@ -419,7 +419,7 @@ export default function CartPage() {
                     </div>
                     <h3 className="success-text">Order Delivered!</h3>
                     <p className="success-desc">Enjoy your fresh, hot food! Thank you for choosing RestoApp.</p>
-                    
+
                     <div className="success-details-card" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
                       <div className="detail-item">
                         <span>Restaurant:</span>

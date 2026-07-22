@@ -13,9 +13,26 @@ export const CartDrawer: React.FC = () => {
     isCartOpen,
     setIsCartOpen,
     currencySymbol,
+    cartRestaurantId,
+    cartRestaurantName,
   } = useCart();
 
   const [checkoutStep, setCheckoutStep] = useState<'idle' | 'validating' | 'cooking' | 'delivery' | 'completed'>('idle');
+  const [activeOrderId, setActiveOrderId] = useState<string>('');
+  const [deliveryAddress, setDeliveryAddress] = useState('456 Gourmet Boulevard, Foodville, CA 90210');
+
+  // Load default address from profile if exists
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('resto_customer_profile');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.address) setDeliveryAddress(parsed.address);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   // Lock scroll when cart is open
   useEffect(() => {
@@ -29,31 +46,82 @@ export const CartDrawer: React.FC = () => {
     };
   }, [isCartOpen]);
 
+  // Helper to update order status in localStorage during simulation
+  const updateOrderStatus = (status: string) => {
+    if (!activeOrderId) return;
+    try {
+      const stored = localStorage.getItem('resto_orders');
+      if (!stored) return;
+      const orders = JSON.parse(stored);
+      const updated = orders.map((o: any) => o.id === activeOrderId ? { ...o, status } : o);
+      localStorage.setItem('resto_orders', JSON.stringify(updated));
+      window.dispatchEvent(new Event('storage'));
+    } catch (err) {
+      console.error('Error updating order status in simulation:', err);
+    }
+  };
+
   // Simulate checkout process
   const startCheckout = () => {
     if (cart.length === 0) return;
+    const orderId = `RA-${Math.floor(100000 + Math.random() * 900000)}`;
+    setActiveOrderId(orderId);
     setCheckoutStep('validating');
+
+    const newOrder = {
+      id: orderId,
+      restaurantId: cartRestaurantId || 'res-1',
+      restaurantName: cartRestaurantName || 'Burger Junction',
+      timestamp: new Date().toISOString(),
+      items: cart.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image,
+        category: item.category,
+      })),
+      subtotal: cartSubtotal,
+      tax: tax,
+      deliveryFee: deliveryFee,
+      total: total,
+      status: 'pending', // pending, preparing, delivering, completed
+      paymentMethod: 'Cash on Delivery',
+      address: deliveryAddress
+    };
+
+    try {
+      const stored = localStorage.getItem('resto_orders');
+      const orders = stored ? JSON.parse(stored) : [];
+      localStorage.setItem('resto_orders', JSON.stringify([newOrder, ...orders]));
+      window.dispatchEvent(new Event('storage'));
+    } catch (err) {
+      console.error('Error saving order from drawer:', err);
+    }
   };
 
   useEffect(() => {
     if (checkoutStep === 'validating') {
       const timer = setTimeout(() => {
         setCheckoutStep('cooking');
+        updateOrderStatus('preparing');
       }, 1500);
       return () => clearTimeout(timer);
     } else if (checkoutStep === 'cooking') {
       const timer = setTimeout(() => {
         setCheckoutStep('delivery');
+        updateOrderStatus('delivering');
       }, 2000);
       return () => clearTimeout(timer);
     } else if (checkoutStep === 'delivery') {
       const timer = setTimeout(() => {
         setCheckoutStep('completed');
+        updateOrderStatus('completed');
         clearCart(); // Clear cart state once order is successfully placed and tracked
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [checkoutStep, clearCart]);
+  }, [checkoutStep, activeOrderId, clearCart]);
 
   const handleClose = () => {
     setIsCartOpen(false);
